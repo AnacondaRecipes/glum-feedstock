@@ -1,0 +1,112 @@
+{% set name = "glum" %}
+{% set version = "3.1.2" %}
+
+package:
+  name: {{ name|lower }}
+  version: {{ version }}
+
+source:
+  url: https://pypi.org/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: e6a416e4737d0133c1cfb1ce47057a3761349c3ac79663192ec6b4f26821a612
+
+build:
+  number: 0
+  script: {{ PYTHON }} -m pip install . --no-deps --no-build-isolation -vv
+  skip: true  # [py<39]
+  # ignore_run_exports:
+  #   - numpy
+  #   - libcxx
+
+requirements:
+  build:
+    - {{ stdlib('c') }}
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+  host:
+    - pip
+    - python
+    - setuptools
+    - setuptools-scm
+    - wheel
+    - cython
+    - numpy {{ numpy }}
+    - scikit-learn >=0.23
+    - llvm-openmp {{ llvm_openmp }}  # [osx]
+    - _openmp_mutex  # [linux]
+  run:
+    - python
+    - joblib
+    - numexpr
+    - numpy
+    - pandas
+    - scikit-learn >=0.23
+    - scipy
+    - formulaic >=0.6
+    - tabmat >=4.0.0
+    - llvm-openmp  # [osx]
+    - _openmp_mutex  # [linux]
+
+# glum_benchmarks is not installed when building by conda, it is used only for benchmarking glum implementation
+# https://github.com/Quantco/glum/blob/3.1.2/setup.py#L79
+# E   ModuleNotFoundError: No module named 'glum_benchmarks'
+{% set ignore_tests = " --ignore=tests/benchmark/test_cli.py" %}
+{% set ignore_tests = ignore_tests + " --ignore=tests/glm/performance/test_performance.py" %}
+{% set ignore_tests = ignore_tests + " --ignore=tests/glm/test_benchmark_golden_master.py" %}
+{% set ignore_tests = ignore_tests + " --ignore=tests/glm/test_offset_weight_obj_equivalent.py" %}
+# git_root package is not available on channel
+# E   ModuleNotFoundError: No module named 'git_root'
+{% set ignore_tests = ignore_tests + " --ignore=tests/glm/test_golden_master.py" %}
+# >       with pytest.raises(np.linalg.LinAlgError):
+            #  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+# E       Failed: DID NOT RAISE <class 'numpy.linalg.LinAlgError'>
+# {% set deselect_tests = " --deselect=tests/glm/test_glm.py::test_drop_first_allows_alpha_equals_0" %}
+
+test:
+  files:
+    - tests
+  source_files:
+    - tests
+  imports:
+    - glum
+    - glum._distribution
+    - glum._glm
+    - glum._link
+    - glum._solvers
+    - glum._util
+  requires:
+    - pip
+    - pytest
+    - click
+    - git
+    - statsmodels
+    - psutil
+    - tqdm
+  commands:
+    - pip check
+    - python -c "from importlib.metadata import version; assert(version('{{ name }}')=='{{ version }}')"
+    - pytest -v {{ ignore_tests }} tests
+    # additional LLM tests
+    - pytest -v tests/llm_test_suite.py
+
+about:
+  home: https://github.com/quantco/glum
+  license: BSD-3-Clause
+  license_family: BSD
+  license_file: LICENSE
+  summary: High performance Python GLMs with all the features!
+  description: |
+    glum is a fast and feature-complete GLM estimator. It supports built-in
+    cross-validation, exploiting regularization path, L1 and L2 regularization
+    with Tikhonov penalties, sample weights, offsets, linear inequality constraints,
+    and more!
+  doc_url: https://glum.readthedocs.io
+  dev_url: https://github.com/quantco/glum
+
+extra:
+  recipe-maintainers:
+    - MatthiasSchmidtblaicherQC
+    - MarcAntoineSchmidtQC
+    - xhochy
+    - stanmart
+    - janjagusch
+    - jtilly
